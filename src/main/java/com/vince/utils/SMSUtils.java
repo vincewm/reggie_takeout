@@ -12,7 +12,7 @@ public class SMSUtils
 {
 
     /**
-     * 发送短信
+     * 发送短信，这个功能仅供参考，项目没有用短信
      * @param signName 签名
      * @param templateCode 模板
      * @param phoneNumbers 手机号
@@ -21,7 +21,7 @@ public class SMSUtils
     public static void sendMessage(String signName, String templateCode,String phoneNumbers,String param) {
         try{
             // 注意点：填写自己的secreteid和secretekey，密钥在腾讯云访问密钥获取
-            Credential cred = new Credential("AKID84nRoumPlriMlunRnxrVyBEFAQdePu85", "jBLErDfqmTw95k8KPHuIRKxKQFpCJBn7");
+            Credential cred = new Credential("xx", "xx");
             // 实例化一个http选项，可选的，没有特殊需求可以跳过
             HttpProfile httpProfile = new HttpProfile();
             httpProfile.setEndpoint("sms.tencentcloudapi.com");
