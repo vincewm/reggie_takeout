@@ -14,9 +14,11 @@ import com.vince.service.DishService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @RestController
@@ -29,7 +31,8 @@ public class DishController {
     private DishFlavorService dishFlavorService;
     @Autowired
     private CategoryService categoryService;
-
+    @Autowired
+    private RedisTemplate redisTemplate;
     /**
      * 新增菜品
      * @param dishDto
@@ -38,7 +41,10 @@ public class DishController {
     @PostMapping
     public R<String> save(@RequestBody DishDto dishDto){
         log.info("新增菜品传来的dish：{}",dishDto);
-        if(dishService.saveWithFlavor(dishDto)) return R.success("保存成功");
+        if(dishService.saveWithFlavor(dishDto)) {
+            redisTemplate.delete("dish_" + dishDto.getCategoryId() + "_" + dishDto.getStatus());
+            return R.success("保存成功");
+        }
         else return R.error("保存失败");
     }
 
@@ -110,27 +116,34 @@ public class DishController {
      */
     @PutMapping
     public R<String> update(@RequestBody DishDto dishDto){
-        if(dishService.updateWithFlavor(dishDto)) return R.success("更新成功");
+        if(dishService.updateWithFlavor(dishDto)){
+            redisTemplate.delete("dish_" + dishDto.getCategoryId() + "_" + dishDto.getStatus());
+            return R.success("更新成功");
+        }
         else return R.error("更新失败");
     }
 
     /**
-     * 条件查询list，只查询开启售卖的。
+     * 条件查询list，只查询开启售卖的。例如http://localhost/dish/list?categoryId=1397844263642378242&status=1
      * @param dish
      * @return
      */
     @GetMapping("/list")
     public R<List<DishDto>> list(Dish dish){
+        List<DishDto> dishDtos= (List<DishDto>) redisTemplate.opsForValue().get("dish_" + dish.getCategoryId() + "_" + dish.getStatus());
+        //缓存中查到了
+        if(dishDtos!=null) return R.success(dishDtos);
+        //缓存中没查到，查询数据，放进缓存
         LambdaQueryWrapper<Dish> wrapper=new LambdaQueryWrapper<>();
         wrapper.like(!StringUtils.isEmpty(dish.getName()),Dish::getName,dish.getName());
         wrapper.eq(dish.getCategoryId()!=null,Dish::getCategoryId,dish.getCategoryId());
         //只查起售的
-        wrapper.eq(Dish::getStatus,1);
+        wrapper.eq(Dish::getStatus,dish.getStatus());
         wrapper.orderByDesc(Dish::getUpdateTime);
         //查到了条件下所有菜品的基本信息
         List<Dish> dishes = dishService.list(wrapper);
         //所有菜品基本信息加工成包括分类名和味道
-        List<DishDto> dishDtos=dishes.stream().map(item->{
+        dishDtos=dishes.stream().map(item->{
             DishDto dishDto = new DishDto();
             BeanUtils.copyProperties(item,dishDto);
             //设置菜品所属分类名
@@ -143,6 +156,7 @@ public class DishController {
             dishDto.setFlavors(flavors);
             return dishDto;
         }).collect(Collectors.toList());
+        redisTemplate.opsForValue().set("dish_" + dish.getCategoryId() + "_" + dish.getStatus(),dishDtos,1, TimeUnit.HOURS);
         return R.success(dishDtos);
     }
 }

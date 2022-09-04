@@ -8,6 +8,7 @@ import com.vince.service.UserService;
 import com.vince.utils.ValidateCodeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @RestController
@@ -23,20 +25,23 @@ import java.util.Map;
 public class UserController {
     @Autowired
     private UserService userService;
+    @Autowired
+    private RedisTemplate redisTemplate;
     @PostMapping("sendMsg")
-    public R<String> sendMsg(@RequestBody User user, HttpServletRequest request){
-        Integer code = ValidateCodeUtils.generateValidateCode(4);
+    public R<String> sendMsg(@RequestBody User user){
+        String code = ValidateCodeUtils.generateValidateCode(4).toString();
         log.info("手机号：{}，验证码：{}",user.getPhone(),code);
-        request.getSession().setAttribute(user.getPhone(),code.toString());
+        redisTemplate.opsForValue().set(user.getPhone(),code,5, TimeUnit.MINUTES);
         return R.success("发送成功");
     }
     @PostMapping("/login")
     public R<String> login(@RequestBody Map<String,String> map, HttpSession session){
         String phone = map.get("phone");
         String code = map.get("code");
-        Object sessionCode =session.getAttribute(phone);
+        Object sessionCode =redisTemplate.opsForValue().get(phone);
         log.info("提交的手机号：{}，验证码：{}，session中的验证码：{}",phone,code,sessionCode);
         if(sessionCode!=null&&sessionCode.equals(code)){
+            redisTemplate.delete(phone);
             //验证成功，查询是否已经注册
             log.info("验证成功");
             LambdaQueryWrapper<User> wrapper=new LambdaQueryWrapper<>();
