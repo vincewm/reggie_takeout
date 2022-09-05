@@ -80,7 +80,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, Order> implements Or
         order.setConsignee(addressBook.getConsignee());
         log.info("订单：{}",order);
         if(!this.save(order)) throw new CustomException("订单保存失败");
-//        shoppingCartService.remove();
+        shoppingCartService.remove(wrapper);
         return true;
     }
 }

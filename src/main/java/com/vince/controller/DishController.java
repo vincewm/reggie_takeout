@@ -130,15 +130,17 @@ public class DishController {
      */
     @GetMapping("/list")
     public R<List<DishDto>> list(Dish dish){
-        List<DishDto> dishDtos= (List<DishDto>) redisTemplate.opsForValue().get("dish_" + dish.getCategoryId() + "_" + dish.getStatus());
+        if(dish.getStatus()!=null) dish.setStatus(1);
+        List<DishDto> dishDtos=(List<DishDto>) redisTemplate.opsForValue().get("dish_" + dish.getCategoryId() + "_" + dish.getStatus());
+        log.info("dishDtos:{}",dishDtos);
         //缓存中查到了
-        if(dishDtos!=null) return R.success(dishDtos);
+        if(dishDtos.size()>0) return R.success(dishDtos);
         //缓存中没查到，查询数据，放进缓存
         LambdaQueryWrapper<Dish> wrapper=new LambdaQueryWrapper<>();
         wrapper.like(!StringUtils.isEmpty(dish.getName()),Dish::getName,dish.getName());
         wrapper.eq(dish.getCategoryId()!=null,Dish::getCategoryId,dish.getCategoryId());
         //只查起售的
-        wrapper.eq(Dish::getStatus,dish.getStatus());
+        wrapper.eq(dish.getStatus()!=null,Dish::getStatus,dish.getStatus());
         wrapper.orderByDesc(Dish::getUpdateTime);
         //查到了条件下所有菜品的基本信息
         List<Dish> dishes = dishService.list(wrapper);

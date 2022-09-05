@@ -11,6 +11,13 @@ spring:
     banner-mode: off
   application:
     name: reggie_takeout
+  redis:
+    host: localhost
+    port: 6379
+  cache:
+    type: redis
+    redis:
+      time-to-live: 1800s   #30分钟
 
 mybatis-plus:
   configuration:
